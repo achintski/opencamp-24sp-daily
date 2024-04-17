@@ -23,6 +23,8 @@ sudo apt install curl
 ### 1.3 配置git+github ssh并clone代码
 之前配置过，故省略
 
+注意：配置ssh后，git push到github时若仍然提示输入密码，可修改.git/config文件中的url，从HTTPS https://github.com/achintski/opencamp-24sp-daily.git 更新为SSH git@github.com:achintski/opencamp-24sp-daily.git
+
 ## 2 rust语法学习及rustlings
 ### 2.0 前言
 
@@ -136,8 +138,12 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
     * 法二：`if` & `else`
 * errors6
     * impl
-        * rust中对象定义和方法定义是分开的
+        * rust中**对象定义和方法定义是分开的**
         * 一个/多个`impl`模块
+        * `self`、`&self`和`&mut self`及所有权
+            * `self`表示`实现方法的结构体类型的实例`的所有权转移到该方法中，这种形式用的较少
+            * `&self`表示该方法对`实现方法的结构体类型的实例`的不可变借用
+            * `&mut self`表示可变借用
     * 闭包
     * map_err()
         * 用来处理Err类型的变量
@@ -145,3 +151,42 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
     * `PositiveNonzeroInteger::new(x).map_err(ParsePosNonzeroError::from_creation)`仅可以用来处理x<=0的情况，而x非数字的情况无法处理
         * `?`操作符：`Err` / `None` 类型直接立即结束，提前返回；否则从`Ok` / `Some` 中取出返回值作为`?`操作符的结果
         * 或者用match平替
+* generics1
+    * `&str` vs `String`
+    * 也可以用`_`来让编译器自动推断
+* generics2
+    * 泛型可以类比多态
+    * 结构体中的泛型 & 方法中使用泛型
+    * 例如（from Rust Course）：
+        ```rust
+        struct Point<T> {
+            x: T,
+            y: T,
+        }
+
+        impl<T> Point<T> {
+            fn x(&self) -> &T {
+                &self.x
+            }
+        }
+
+        fn main() {
+            let p = Point { x: 5, y: 10 };
+            println!("p.x = {}", p.x());
+        }
+        ```
+        * 使用泛型参数前，依然需要提前声明：`impl<T>`
+        * 上述代码中，`Point<T>`不再是泛型声明，而是一个完整的结构体类型，因为我们定义的结构体就是 `Point<T>`而不再是`Point`
+        * 除了结构体中的泛型参数，我们还能在该结构体的方法中定义额外的泛型参数，就跟泛型函数一样
+        * 对于`Point<T>`类型，你不仅能定义基于`T`的方法，还能针对特定的具体类型，进行方法定义
+* *trait(特征)*
+    * `impl Trait for Type`：为Type类型实现Trait特征
+    * 特征定义与实现的位置(孤儿规则)
+    * 方法的默认实现 vs 重载
+    * `impl Trait`
+        * 作为函数参数
+            * `impl Trait`此时为语法糖,可用`特征约束`写出完整版
+            * `多重约束`：`impl T1 + T2`
+        * 作为函数返回值（只能返回某一种类型）
+* quiz3
+    * restricting type parameter `T`：`impl<T: std::fmt::Display> ReportCard<T> {...}`（根据编译器help提示）
