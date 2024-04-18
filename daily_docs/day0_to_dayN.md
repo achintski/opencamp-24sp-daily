@@ -35,7 +35,7 @@ sudo apt install curl
 因此我穿插查阅/参考了如下资料：
 * 快速入门：
     * [菜鸟教程](https://www.runoob.com/rust/rust-tutorial.html)
-    * [《Rust语言圣经》](https://course.rs/about-book.html)
+    * [《Rust语言圣经》](https://course.rs/about-book.html)(最推荐，整合了很多其他的经典资料)
 * 官方文档：
     * [The Rust Standard Library](https://doc.rust-lang.org/stable/std/index.html)
     * [《The Rust Reference》](https://doc.rust-lang.org/stable/reference/)
@@ -82,9 +82,10 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
 * 不可变变量 vs 常量
 * 语句 vs 表达式
 * 所有权 & 生命周期
+    * 高级语言 `Python/Java` 等往往会弱化堆栈的概念，但是要用好 `C/C++/Rust`，就必须对堆栈有深入的了解，原因是两者的内存管理方式不同：前者有 `GC` 垃圾回收机制，因此无需你去关心内存的细节。
     * 在所有权模型下：堆内存的生命周期，和创建它的栈内存的生命周期保持一致
-    * copy/move
-    * borrow（借用）
+    * `copy` / `move`
+    * `borrow`（借用）
         * 借用`&`与可变借用`&mut`
         * 借用规则
     * 函数的参数和返回值与变量绑定的规则相同
@@ -97,7 +98,7 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
 * vec2
 * enums3
 * strings3&strings4
-    * into
+    * `into()`
 * hashmaps2
     * `HashMap`的`get()`方法只能返回值的引用
     * 解引用操作`*`也需要转移所有权
@@ -145,6 +146,8 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
             * `&self`表示该方法对`实现方法的结构体类型的实例`的不可变借用
             * `&mut self`表示可变借用
     * 闭包
+        * 可以看做匿名函数
+        * ||中间放参数
     * map_err()
         * 用来处理Err类型的变量
         * 参数是函数/闭包
@@ -190,3 +193,111 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
         * 作为函数返回值（只能返回某一种类型）
 * quiz3
     * restricting type parameter `T`：`impl<T: std::fmt::Display> ReportCard<T> {...}`（根据编译器help提示）
+* lifetims1
+    * 标记的生命周期只是为了取悦编译器，告诉编译器多个引用之间的关系，当不满足此约束条件时，就拒绝编译通过；并不会改变任何引用的实际作用域
+    * 和泛型一样，使用生命周期参数，需要先声明 `<'a>`
+    * 本题中：把具体的引用传给`longest`时，那生命周期`'a`的大小就是`x`和`y`的作用域的重合部分，换句话说，`'a`的大小将等于`x`和`y`中较小的那个
+    * 编译器提示：
+    ```bash
+        help: consider introducing a named lifetime parameter
+        |
+    13  | fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+        |           ++++     ++          ++          ++
+    ```
+* lifetimes2
+    * 在`longest`函数中，`string2`的生命周期也是`'a`，由此说明`string2`也必须活到 println! 处，可是`string2`在代码中实际上只能活到内部语句块的花括号处`}`，小于它应该具备的生命周期`'a`，因此编译出错（编译器没法知道返回值没有用到`string2`）
+    * hint：
+    Remember that the generic lifetime 'a will get the concrete lifetime that is equal to the smaller of the lifetimes of x and y. 
+    You can take at least two paths to achieve the desired result while keeping the inner block:
+        1. Move the string2 declaration to make it live as long as string1 (how is result declared?)
+        2. Move println! into the inner block
+* lifetimes3
+    * 结构体中生命周期标注：
+        * 对结构体本身类似泛型：`<'a>`
+        * 对结构体成员：`&'a`
+    * 结构体成员引用的生命周期要大于等于结构体
+* lifetime others
+    * 输入生命周期 & 输出生命周期
+    * 生命周期的消除
+    * 方法中的生命周期（类似泛型参数语法）
+        * `impl`中必须使用结构体的完整名称，包括`<'a>`，因为生命周期标注也是结构体类型的一部分！
+        * 方法签名中，往往不需要标注生命周期，得益于生命周期消除的第一和第三规则
+    * 静态生命周期
+* tests4
+    * `#[should_panic]`：The test passes if the code inside the function panics; the test fails if the code inside the function doesn’t panic.
+<!-- * tests5（自动进行时这个被跳过了，直接到了迭代器）
+    * unsafe函数：
+        * 使用`unsafe fn`来进行定义
+        * 这种定义方式是为了告诉调用者：当调用此函数时，你需要注意它的相关需求，因为Rust无法担保调用者在使用该函数时能满足它所需的一切需求
+        * 因此在使用`unsafe`声明的函数时，一定要看看相关的文档，确定自己没有遗漏什么 -->
+* iterators1
+    * Rust的迭代器是指实现了`Iterator trait`的类型
+    * 最主要的一个方法：`next()`
+        * 对迭代器的遍历是消耗性的
+        * 返回的是`Option<Item>`类型，当有值时返回`Some(Item)`，无值时返回`None`
+        * 手动迭代必须将迭代器声明为`mut`可变，因为调用`next`会改变迭代器其中的状态数据（当前遍历的位置等），而`for`循环去迭代则无需标注`mut`，因为它会帮我们自动完成
+* iterators2
+    * `iter()`
+        * `sum()`会消耗掉`Iterator`，即为*消费者适配器*
+        * `Iterator adapters`（*迭代器适配器*）
+            * Adapters operate on an iterator and return a new iterator
+            * 是*惰性接口*：iterators are lazy and do nothing unless consumed
+            * 常见的有：`map()`、`filter()`
+            * 需要一个*消费者适配器*来收尾，例如：`collect()`
+        * 注：如果集合里的类型是非`Copy`类型，消费者在取得每个值后，在迭代器被清除后，集合里的元素也会被清除。集合会只剩“空壳”，当然剩下的“空壳”也会被清除
+        * 迭代器是*可组合的*
+    * 一个例子：
+        ```rust
+        let v1: Vec<i32> = vec![1, 2, 3];
+        v1.iter().map(|x| x + 1);
+        ```
+        map 函数的闭包并没有获得迭代器的所有权。具体解释如下：
+        * `v1.iter()`创建了一个针对`v1`中元素的迭代器。这个迭代器是对`v1`的不可变引用，也就是说，它拥有对`v1`中元素的借用权，但并不拥有所有权。
+        * `map(|x| x + 1)`是对上述迭代器应用的一个闭包。闭包内部的`|x| x + 1`表示对迭代器产生的每个元素`x`加上 1。在这个过程中，闭包接收的是`x`的不可变引用，同样没有获取`x`或迭代器的所有权。
+
+        综上所述，闭包并未获得迭代器的所有权。它只是在`map`函数执行期间，对迭代器提供的每个元素借用并进行计算。一旦`map`函数结束，闭包对元素的借用也随之结束，不会影响到`v1`或其迭代器的所有权状态。
+        ...
+        如果您想让闭包返回的新值形成一个新的集合（如 Vec<i32>），您需要调用 collect() 方法来完成这一过程：
+        ```rust
+        let incremented_values: Vec<i32> = v1.iter().map(|x| x + 1).collect();
+        ```
+        在这里，`collect()`方法会消费`map`返回的迭代器，并将其内容收集到一个新的`Vec<i32>`中。然而，即使如此，闭包本身仍然没有获得迭代器的所有权，而是`collect()`函数在处理过程中获取了所有权并完成了数据的转移。
+* iterators3
+    * 从容器创造出迭代器一般有三种方法：
+        * `iter()` takes elements by reference.
+        * `iter_mut()` takes mutable reference to elements.
+        * `into_iter()` takes ownership of the values and consumes the actual type once iterated completely. The original collection can no longer be accessed.
+    * `collect()`会根据函数返回值自动调整格式
+* iterators4
+    * 这不让用那不让用，那自然是得用自带的工具咯
+    * (1..=num).product()
+* iterators5
+    * 一点思考：
+        ```rust
+        fn count_for(map: &HashMap<String, Progress>, value: Progress) -> usize {
+            let mut count = 0;
+            for val in map.values() {
+                // 此处为什么不是*val == value呢？
+                // 下面这中方式中，实际上是在比较两者对应的实体是否相同
+                if val == &value {
+                    count += 1;
+                }
+            }
+            count
+        }
+        ```
+    * *扁平化（Flatten）*
+        ```rust
+        fn count_collection_iterator(collection: &[HashMap<String, Progress>], value: Progress) -> usize {
+            collection.iter() // Iterate over the slice of hashmaps
+                .flat_map(|map| map.values()) // Flatten the values of each hashmap into a single iterator
+                .filter(|val| **val == value) // Filter values equal to the target value
+                .count() // Count the filtered values
+        }
+        ```
+    * 在上述实现中：
+        * 首先使用 `collection.iter()` 创建一个迭代器，它遍历 `collection` 中的每一个 `HashMap` 引用。
+        * 然后对每个 `HashMap` 应用 `flat_map(|map| map.values())`，将每个 `HashMap` 的值迭代器扁平化为单个包含所有 `HashMap` 值的迭代器。
+        接着使用 `filter(|val| *val == value)`，筛选出与目标 `value` 相同的 `Progress` 枚举值。
+        * 最后，通过 `count()` 方法计算筛选后的元素数量，即符合条件的 `Progress` 枚举值的总数，返回这个计数值作为函数结果。
+* smart_pointers（*智能指针*）
