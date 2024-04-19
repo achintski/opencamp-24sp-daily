@@ -238,12 +238,11 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
         * 手动迭代必须将迭代器声明为`mut`可变，因为调用`next`会改变迭代器其中的状态数据（当前遍历的位置等），而`for`循环去迭代则无需标注`mut`，因为它会帮我们自动完成
 * iterators2
     * `iter()`
-        * `sum()`会消耗掉`Iterator`，即为*消费者适配器*
         * `Iterator adapters`（*迭代器适配器*）
             * Adapters operate on an iterator and return a new iterator
             * 是*惰性接口*：iterators are lazy and do nothing unless consumed
-            * 常见的有：`map()`、`filter()`
-            * 需要一个*消费者适配器*来收尾，例如：`collect()`
+            * 常见的有：`map()`、`filter()`、`take()`、`zip()`、`rev()`
+            * 需要一个*消费器*来收尾，例如：`collect()`、`sum()`、`any()`
         * 注：如果集合里的类型是非`Copy`类型，消费者在取得每个值后，在迭代器被清除后，集合里的元素也会被清除。集合会只剩“空壳”，当然剩下的“空壳”也会被清除
         * 迭代器是*可组合的*
     * 一个例子：
@@ -301,3 +300,62 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
         接着使用 `filter(|val| *val == value)`，筛选出与目标 `value` 相同的 `Progress` 枚举值。
         * 最后，通过 `count()` 方法计算筛选后的元素数量，即符合条件的 `Progress` 枚举值的总数，返回这个计数值作为函数结果。
 * smart_pointers（*智能指针*）
+    * 前言
+        * 相比其它语言，Rust 堆上对象还有一个特殊之处---它们都拥有一个所有者，因此受所有权规则的限制：当赋值时，发生的是所有权的转移（只需浅拷贝栈上的引用或智能指针即可）
+        * 例如以下代码：
+            ```rust
+            fn main() {
+                let b = foo("world");
+                println!("{}", b);
+            }
+
+            fn foo(x: &str) -> String {
+                let a = "Hello, ".to_string() + x;
+                a
+            }
+            ```
+        * 在 `foo` 函数中，`a` 是 `String` 类型，它其实是一个智能指针结构体，该智能指针存储在函数栈中，指向堆上的字符串数据。当被从 `foo` 函数转移给 `main` 中的 `b` 变量时，栈上的智能指针被复制一份赋予给 `b`，而底层数据无需发生改变，这样就完成了所有权从 `foo` 函数内部到 `b` 的转移。
+    * 在 `Rust` 中，凡是需要做资源回收的数据结构，且实现了 `Deref`/`DerefMut`/`Drop`，都是`智能指针`
+* arc1
+    * 使用 `let shared_numbers = Arc::new(numbers);` ：将 `numbers` 向量封装在一个 `Arc<Vec<u32>>` 中。
+    * `Arc` 允许多个线程同时拥有对同一数据的访问权，且其内部的引用计数机制确保数据在所有持有者都不再需要时会被正确释放。这样，`numbers` 可以在多个线程间共享而无需复制整个向量，既节省了内存，又保证了线程安全性
+    * 使用 `let child_numbers = Arc::clone(&shared_numbers);` ：创建 `shared_numbers` 的克隆（实际上是增加其引用计数）。每个线程都获得一个指向相同底层数据的独立 `Arc` 
+    * `thread::spawn`创建一个线程
+    * `move`关键字：指示闭包在捕获外部变量时采取“所有权转移”策略，而非默认的借用策略
+    * `join()` 方法会阻塞当前线程，直到指定的线程完成其任务。`unwrap()` 处理 `join()` 返回的 `Result`，在没有错误时提取出结果（这里没有错误处理，因为假设所有线程都能成功完成）。这样，`main()` 函数会等待所有子线程计算完毕后再继续执行
+* cow1
+* threads1
+    * 如果你想创建新线程，可以使用`thread::spawn`函数并传递一个闭包，在闭包中包含要在新线程 执行的代码。
+    * 默认情况下，当主线程执行结束，所有子线程也会立即结束，且不管子线程中的代码是否执行完毕。极端情况下，如果主线程在创建子线程后就立即结束，子线程可能根本没机会开始执行。
+    * 为避免上述情况的发生，我们可以通过阻塞主线程来等待子线程执行完毕。这里所说的阻塞线程，是指阻止该线程工作或退出。
+    * `Rust`标准库提供的`thread::JoinHandle`结构体的`join`方法，可用于把子线程加入主线程等待队列，这样主线程会等待子线程执行完毕后退出。
+    * `unwrap()`
+* threads2
+    * Mutex确保在某一时刻只有一个thread可以更新jobs_completed
+    * thread闭包中，使用lock()上锁
+    * 注意：
+        ```rust
+        println!("jobs completed {}", status.lock().unwrap().jobs_completed);
+        ```
+        如果放到循环内，就是输出10次`jobs completed x`，`x`的值有时候全是10，有时候有一部分是10；放到循环外就是一次`jobs completed 10`
+* threads3
+    * 报错内容：
+        ```bash
+           |
+        29 | fn send_tx(q: Queue, tx: mpsc::Sender<u32>) -> () {
+           |                      -- move occurs because `tx` has type `Sender<u32>`, which does not implement the `Copy` trait
+        ...
+        34 |     thread::spawn(move || {
+           |                   ------- value moved into closure here
+        ...
+        37 |             tx.send(*val).unwrap();
+           |             -- variable moved due to use in closure
+        ...
+        42 |     thread::spawn(move || {
+           |                   ^^^^^^^ value used here after move
+        ...
+        45 |             tx.send(*val).unwrap();
+           |             -- use occurs due to use in closure
+        error: aborting due to 1 previous error
+        ```
+    * 分析：`tx`变量`move`到第一个闭包后，已经无法在该闭包外获取了，而在第二次进程创建仍然尝试`move`。通过为每个变量创建`tx`的`clone`，我们确保了每个闭包都拥有其独立的`sender`，从而避免了`use after move`错误
