@@ -369,3 +369,90 @@ Q：任何行为背后都有动机，Rust特性这样设计的动机是什么呢
     * `Vec::resize` 方法用于改变已有向量的长度，如果新的长度大于当前长度，则填充指定的默认值。
         * 但是，你的用法存在一些问题。首先，你试图创建一个空向量（通过将大小更改为0），但直接使用 `resize(0, 5)` 并不是正确做法，因为这会让人们以为你要填充默认值5到一个空向量中，而实际上你是从一个非空向量开始的。
         * 如果你想从 `vec![1, 2, 3, 4, 5]` 起始，然后得到一个空向量，你应该直接使用 `clear` 方法，而不是 `resize`。
+* as_ref_mut
+    * 根据注释完成
+* using_as
+    * 报错内容：
+        ```bash
+           --> exercises/conversions/using_as.rs:17:11
+           |
+        17 |     total / values.len()
+           |           ^ no implementation for `f64 / usize`
+           |
+           = help: the trait `Div<usize>` is not implemented for `f64`
+           = help: the following other types implement trait `Div<Rhs>`:
+                       <&'a f64 as Div<f64>>
+                       <&f64 as Div<&f64>>
+                       <f64 as Div<&f64>>
+                       <f64 as Div>
+        ```
+    * 分析：错误提示指出 `f64` 类型没有实现 `Div<usize>` trait，因此无法执行除法操作。为了解决这个问题，我们可以将 `values.len()` 转换为 `f64` 类型，以便进行除法运算。
+    在修改后的代码中，我们使用 `values.len() as f64` 将 `values.len()` 的结果转换为 `f64` 类型，以便与 `total` 执行除法操作。
+* from_into
+    * 为`Person`结构实现`From<&str>` trait
+* from_str
+    * 需要实现`FromStr` trait 来将字符串解析为 `Person` 结构体，并返回相应的错误类型 `ParsePersonError`
+
+* tests5
+    * 这段代码中，`modify_by_address` 函数使用了 `unsafe` 关键字来标记它的不安全性。根据注释，我们需要在函数的文档注释中提供有关函数行为和约定的描述。
+
+    * 以下是修改后的代码：
+        ```rust
+        /// # Safety
+        ///
+        /// The `address` must be a valid memory address that points to a mutable `u32` value.
+        ///
+        /// It is the caller's responsibility to ensure that the `address` is a valid memory address
+        /// and that it points to a mutable `u32` value. Failing to meet these requirements may lead
+        /// to undefined behavior, such as memory corruption or crashes.
+        unsafe fn modify_by_address(address: usize) {
+            // SAFETY: The caller must ensure that `address` is a valid memory address
+            // and that it points to a mutable `u32` value.
+            let value_ptr = address as *mut u32;
+            let value = &mut *value_ptr;
+            *value = 0xAABBCCDD;
+        }
+        ```
+
+    * 在函数的(文档)注释中，我们明确了对 `address` 参数的要求，即它必须是一个有效的内存地址，并指向一个可变的 `u32` 值。我们还提醒调用者必须满足这些要求，并在不满足要求时可能会导致的未定义行为。
+
+    * 在函数内部，我们使用了 `address` 参数将其转换为一个可变的 `u32` 指针 `value_ptr`，然后通过解引用该指针获取可变引用 `value`。最后，我们将 `value` 设置为 `0xAABBCCDD`。
+
+* test6
+    * 这段代码中，我们需要实现一个 `raw_pointer_to_box` 函数，它将一个原始指针转换为一个拥有所有权的 `Box<Foo>`。我们需要根据给定的指针重新构建一个 `Box<Foo>` 对象。
+
+* test7&test8
+    * 在 `tests7` 部分，我们设置了一个名为 `TEST_FOO` 的环境变量，并使用 `rustc-env` 指令将其传递给Cargo。
+    * 在 `tests8` 部分，我们使用 `rustc-cfg` 指令启用了名为 `pass` 的特性。
+* test9
+* algorithm1
+    * Note that we use the `Ord` and `Clone` traits for the generic type `T` to enable value comparisons and cloning, respectively.
+* algorithm2
+    1. 定义两个指针 `current` 和 `prev`，分别指向当前节点和上一个节点。初始时 `current` 指向链表的头节点，`prev` 为 `None`。
+
+    2. 进入循环，在每次迭代中:
+        - 获取当前节点的可变引用 `node`。
+        - 将 `current` 移动到下一个节点。
+        - 将当前节点的 `next` 指针指向上一个节点 `prev`。
+        - 如果 `prev` 不为 `None`，则更新上一个节点的 `prev` 指针指向当前节点。
+        - 如果 `prev` 为 `None`，说明当前节点是新的尾节点，更新 `self.end` 为当前节点。
+        - 将 `prev` 更新为当前节点。
+
+    3. 循环结束后，将 `self.start` 更新为最后一个节点，即反转后的新头节点。
+
+* algorithm9
+    * 注意：在`next`中，对`vec`的处理除了要把最后一个元素拷贝到下标为`1`处，还需要把尾部元素用`pop()`删除。可以合起来写（后面加一个`?`），也可以分开。
+        ```rust
+        fn next(&mut self) -> Option<T> {
+            //TODO
+            if self.is_empty() {
+                return None;
+            }
+            let result = self.items[1].clone();
+            self.items[1] = self.items.pop().clone()?;
+            self.count -= 1;
+            self.heapify_down(1);
+            Some(result)
+        }
+        ```
+* 本地通过但autograde没通过：可以在actions-GitHub Classroon Workflow-最新的记录-Autograding complete的第二个日志中查看
